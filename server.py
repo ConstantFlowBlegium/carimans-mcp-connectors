@@ -1,6 +1,8 @@
 import os
 from fastmcp import FastMCP
 from contextlib import asynccontextmanager
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from robaws_client import RobawsClient
 
 @asynccontextmanager
@@ -17,6 +19,11 @@ async def lifespan(app):
     await client.close()
 
 mcp = FastMCP("Robaws Assistant", lifespan=lifespan)
+
+@mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
+async def health_check(request: Request) -> JSONResponse:
+    """Health-check endpoint for Railway (and other health probes)."""
+    return JSONResponse({"status": "ok"})
 
 @mcp.tool()
 async def get_work_orders(size: int = 25, page: int = 0, status: str = None, date_from: str = None, date_to: str = None, client_id: str = None) -> dict:
