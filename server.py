@@ -4,7 +4,13 @@ from contextlib import asynccontextmanager
 from robaws_client import RobawsClient
 
 @asynccontextmanager
-async def lifespan():
+async def lifespan(app):
+    """FastMCP lifespan context manager.
+
+    FastMCP passes itself as the first argument when calling the lifespan
+    generator, so we accept an `app` parameter even if we don't use it.
+    """
+
     global client
     client = RobawsClient()
     yield
