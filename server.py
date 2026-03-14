@@ -1,17 +1,16 @@
 import os
 from fastmcp import FastMCP
+from contextlib import asynccontextmanager
 from robaws_client import RobawsClient
 
-mcp = FastMCP("Robaws Assistant")
-
-client = None
-
-@mcp.lifespan
+@asynccontextmanager
 async def lifespan():
     global client
     client = RobawsClient()
     yield
     await client.close()
+
+mcp = FastMCP("Robaws Assistant", lifespan=lifespan)
 
 @mcp.tool()
 async def get_work_orders(size: int = 25, page: int = 0, status: str = None, date_from: str = None, date_to: str = None, client_id: str = None) -> dict:
