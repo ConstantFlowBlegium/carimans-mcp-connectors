@@ -1,24 +1,34 @@
 import os
+from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.server.auth import StaticTokenVerifier
 from contextlib import asynccontextmanager
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from robaws_client import RobawsClient
 
+load_dotenv()
+
 @asynccontextmanager
 async def lifespan(app):
-    """FastMCP lifespan context manager.
-
-    FastMCP passes itself as the first argument when calling the lifespan
-    generator, so we accept an `app` parameter even if we don't use it.
-    """
-
     global client
     client = RobawsClient()
     yield
     await client.close()
 
-mcp = FastMCP("Robaws Assistant", lifespan=lifespan)
+mcp_auth_token = os.getenv("MCP_AUTH_TOKEN")
+auth = None
+if mcp_auth_token:
+    auth = StaticTokenVerifier(
+        tokens={
+            mcp_auth_token: {
+                "client_id": "claude-desktop",
+                "scopes": ["tools:call"],
+            }
+        }
+    )
+
+mcp = FastMCP("Robaws Assistant", lifespan=lifespan, auth=auth)
 
 @mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
 async def health_check(request: Request) -> JSONResponse:
@@ -120,9 +130,9 @@ async def get_tasks(size: int = 25, page: int = 0) -> dict:
     return await client.get("tasks", params)
 
 @mcp.tool()
-async def search_robaws(endpoint: str, params: dict = {}) -> dict:
+async def search_robaws(endpoint: str, params: dict = None) -> dict:
     """Generic tool to query any Robaws endpoint with custom parameters."""
-    return await client.get(endpoint, params)
+    return await client.get(endpoint, params or {})
 
 if __name__ == "__main__":
     mcp.run(transport="streamable-http", host="0.0.0.0", port=int(os.getenv("PORT", 8000)))

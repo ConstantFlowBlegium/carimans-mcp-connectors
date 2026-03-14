@@ -15,9 +15,14 @@ class RobawsClient:
 
     async def get(self, endpoint: str, params: dict = None) -> dict:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
-        response = await self.client.get(url, params=params or {})
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = await self.client.get(url, params=params or {})
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            return {"error": f"Robaws API returned {e.response.status_code}: {e.response.text}"}
+        except httpx.RequestError as e:
+            return {"error": f"Could not reach Robaws API: {str(e)}"}
 
     async def close(self):
         await self.client.aclose()
