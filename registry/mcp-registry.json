@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "servers": [
+    {
+      "id": "robaws",
+      "name": "Robaws",
+      "description": "Carimans construction data — projects, invoices, clients, suppliers",
+      "railway_url": "https://robaws-mcp-production.up.railway.app",
+      "token_env_var": "ROBAWS_MCP_TOKEN",
+      "claude_config_key": "robaws-mcp"
+    },
+    {
+      "id": "outlook",
+      "name": "Outlook",
+      "description": "Victor's email at victor@carimans.com",
+      "railway_url": "PLACEHOLDER — fill in after Outlook Railway deploy",
+      "token_env_var": "OUTLOOK_MCP_TOKEN",
+      "claude_config_key": "outlook-mcp"
+    }
+  ]
+}
