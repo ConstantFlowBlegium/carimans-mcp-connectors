@@ -13,7 +13,7 @@
       "id": "outlook",
       "name": "Outlook",
       "description": "Victor's email at victor@carimans.com",
-      "railway_url": "PLACEHOLDER — fill in after Outlook Railway deploy",
+      "railway_url": "https://outlook-mcp-production-0326.up.railway.app",
       "token_env_var": "OUTLOOK_MCP_TOKEN",
       "claude_config_key": "outlook-mcp"
     }
