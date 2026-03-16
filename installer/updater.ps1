@@ -151,7 +151,7 @@ function Main {
         $entry = New-Object PSObject
         $entry | Add-Member -NotePropertyName "command" -NotePropertyValue "npx"
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
-            "-y", "@anthropic-ai/mcp-remote",
+            "-y", "mcp-remote",
             $mcpUrl,
             "--header", "Authorization: Bearer $token"
         )
