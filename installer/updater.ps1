@@ -157,7 +157,8 @@ function Main {
     # 4. Write updated config
     if ($changesMade) {
         $json = $config | ConvertTo-Json -Depth 10
-        Set-Content -Path $ConfigPath -Value $json -Encoding UTF8
+        # Write UTF-8 without BOM — Claude Desktop's JSON parser rejects the BOM
+        [System.IO.File]::WriteAllText($ConfigPath, $json, (New-Object System.Text.UTF8Encoding $false))
         Write-Log "Config written to $ConfigPath"
 
         # 5. Restart Claude Desktop if it is running
