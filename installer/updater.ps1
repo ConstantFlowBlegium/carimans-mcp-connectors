@@ -148,16 +148,13 @@ function Main {
 
         # Build the MCP server entry using npx mcp-remote bridge
         # This works with all Claude Desktop versions (no native HTTP transport needed)
-        $envObj = New-Object PSObject
-        $envObj | Add-Member -NotePropertyName $tokenEnvVar -NotePropertyValue $token
         $entry = New-Object PSObject
         $entry | Add-Member -NotePropertyName "command" -NotePropertyValue "npx"
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
             "-y", "@anthropic-ai/mcp-remote",
             $mcpUrl,
-            "--header", "Authorization:`${$tokenEnvVar}"
+            "--header", "Authorization: Bearer $token"
         )
-        $entry | Add-Member -NotePropertyName "env" -NotePropertyValue $envObj
 
         # Add or update the entry
         if ($alreadyExists) {
