@@ -126,8 +126,16 @@ function Main {
 
         if ($alreadyExists) {
             $existing = $existingServers.$key
+            # Check if URL matches (could be in args array or old url field)
             $existingUrl = ""
-            try { $existingUrl = $existing.url } catch {}
+            try {
+                if ($existing.args) {
+                    # npx mcp-remote format: URL is the 3rd arg (index 2)
+                    $existingUrl = $existing.args[2]
+                } elseif ($existing.url) {
+                    $existingUrl = $existing.url
+                }
+            } catch {}
             if ($existingUrl -eq $mcpUrl) {
                 Write-Log "SKIP: $($server.name) already configured with correct URL"
                 continue
@@ -138,13 +146,18 @@ function Main {
             Write-Log "ADD: $($server.name) is new - adding to config"
         }
 
-        # Build the MCP server entry
-        $headers = New-Object PSObject
-        $headers | Add-Member -NotePropertyName "Authorization" -NotePropertyValue "Bearer $token"
+        # Build the MCP server entry using npx mcp-remote bridge
+        # This works with all Claude Desktop versions (no native HTTP transport needed)
+        $envObj = New-Object PSObject
+        $envObj | Add-Member -NotePropertyName $tokenEnvVar -NotePropertyValue $token
         $entry = New-Object PSObject
-        $entry | Add-Member -NotePropertyName "type" -NotePropertyValue "http"
-        $entry | Add-Member -NotePropertyName "url" -NotePropertyValue $mcpUrl
-        $entry | Add-Member -NotePropertyName "headers" -NotePropertyValue $headers
+        $entry | Add-Member -NotePropertyName "command" -NotePropertyValue "npx"
+        $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
+            "-y", "@anthropic-ai/mcp-remote",
+            $mcpUrl,
+            "--header", "Authorization:`${$tokenEnvVar}"
+        )
+        $entry | Add-Member -NotePropertyName "env" -NotePropertyValue $envObj
 
         # Add or update the entry
         if ($alreadyExists) {
