@@ -18,6 +18,22 @@ function Write-Log {
 function Main {
     Write-Log "--- Carimans MCP Updater started ---"
 
+    # 0. Ensure mcp-remote is globally installed (npx doesn't work reliably on Windows)
+    Write-Log "Ensuring mcp-remote is installed globally..."
+    try {
+        $npmOutput = & npm list -g mcp-remote 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "Installing mcp-remote globally..."
+            & npm install -g mcp-remote 2>&1 | Out-Null
+            Write-Log "mcp-remote installed"
+        } else {
+            Write-Log "mcp-remote already installed"
+        }
+    }
+    catch {
+        Write-Log "WARNING: Could not install mcp-remote: $_"
+    }
+
     # 1. Fetch registry from GitHub
     Write-Log "Fetching registry from $RegistryUrl"
     try {
@@ -126,14 +142,11 @@ function Main {
 
         if ($alreadyExists) {
             $existing = $existingServers.$key
-            # Check if URL matches (could be in args array or old url field)
+            # Check if URL matches (first arg is the URL)
             $existingUrl = ""
             try {
                 if ($existing.args) {
-                    # npx mcp-remote format: URL is the 3rd arg (index 2)
-                    $existingUrl = $existing.args[2]
-                } elseif ($existing.url) {
-                    $existingUrl = $existing.url
+                    $existingUrl = $existing.args[0]
                 }
             } catch {}
             if ($existingUrl -eq $mcpUrl) {
@@ -146,12 +159,11 @@ function Main {
             Write-Log "ADD: $($server.name) is new - adding to config"
         }
 
-        # Build the MCP server entry using npx mcp-remote bridge
-        # This works with all Claude Desktop versions (no native HTTP transport needed)
+        # Build the MCP server entry using mcp-remote (globally installed)
+        # npx doesn't work reliably on Windows — the process exits immediately
         $entry = New-Object PSObject
-        $entry | Add-Member -NotePropertyName "command" -NotePropertyValue "npx"
+        $entry | Add-Member -NotePropertyName "command" -NotePropertyValue "mcp-remote"
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
-            "-y", "mcp-remote",
             $mcpUrl,
             "--header", "Authorization: Bearer $token"
         )
