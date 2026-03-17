@@ -7,6 +7,7 @@
       "description": "Carimans construction data — projects, invoices, clients, suppliers",
       "railway_url": "https://robaws-mcp-production.up.railway.app",
       "token_env_var": "ROBAWS_MCP_TOKEN",
+      "token_value": null,
       "claude_config_key": "robaws-mcp"
     },
     {
@@ -15,6 +16,7 @@
       "description": "Victor's email at victor@carimans.com",
       "railway_url": "https://outlook-mcp-production-0326.up.railway.app",
       "token_env_var": "OUTLOOK_MCP_TOKEN",
+      "token_value": null,
       "claude_config_key": "outlook-mcp"
     },
     {
@@ -23,6 +25,7 @@
       "description": "Carimans Google Drive — factuurcarimans@gmail.com",
       "railway_url": "https://google-drive-mcp-production-b4e9.up.railway.app/",
       "token_env_var": "GDRIVE_MCP_TOKEN",
+      "token_value": null,
       "claude_config_key": "gdrive-mcp"
     }
   ]

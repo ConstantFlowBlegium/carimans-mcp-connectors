@@ -3,9 +3,12 @@
 
 $ErrorActionPreference = "Stop"
 
-$RegistryUrl = "https://raw.githubusercontent.com/ConstantFlowBlegium/carimans-mcp-connectors/main/registry/mcp-registry.json"
-$ConfigPath = "$env:APPDATA\Claude\claude_desktop_config.json"
-$LogFile = "$env:TEMP\carimans-mcp-connectors-updater.log"
+$RegistryUrl    = "https://raw.githubusercontent.com/ConstantFlowBlegium/carimans-mcp-connectors/main/registry/mcp-registry.json"
+$SelfUrl        = "https://raw.githubusercontent.com/ConstantFlowBlegium/carimans-mcp-connectors/main/installer/updater.ps1"
+$ConfigPath     = "$env:APPDATA\Claude\claude_desktop_config.json"
+$LogFile        = "$env:TEMP\carimans-mcp-connectors-updater.log"
+
+Add-Type -AssemblyName Microsoft.VisualBasic
 
 function Write-Log {
     param([string]$Message)
@@ -15,10 +18,48 @@ function Write-Log {
     Write-Host $line
 }
 
+function Show-TokenPrompt {
+    param(
+        [string]$ServerName,
+        [string]$TokenEnvVar
+    )
+    $title = "New tool available in Claude Desktop"
+    $message = @"
+A new tool was added to Claude Desktop: $ServerName
+
+To activate it on your computer:
+  1. Open Bitwarden
+  2. Search for: $TokenEnvVar
+  3. Copy the token
+  4. Paste it in the box below and click OK
+
+Press Cancel to skip (you can run the setup again later to activate it).
+"@
+    $result = [Microsoft.VisualBasic.Interaction]::InputBox($message, $title, "")
+    return $result
+}
+
 function Main {
     Write-Log "--- Carimans MCP Updater started ---"
 
-    # 0. Ensure mcp-remote is globally installed (npx doesn't work reliably on Windows)
+    # 0. Self-update: fetch latest version from GitHub and replace local copy if changed.
+    # The current run continues unchanged; the new version is used on the next run.
+    $selfPath = $MyInvocation.MyCommand.Path
+    if ($selfPath -and (Test-Path $selfPath)) {
+        try {
+            $latest = (Invoke-WebRequest -Uri $SelfUrl -UseBasicParsing -TimeoutSec 10).Content
+            $current = [System.IO.File]::ReadAllText($selfPath, (New-Object System.Text.UTF8Encoding $false))
+            if ($latest.Trim() -ne $current.Trim()) {
+                [System.IO.File]::WriteAllText($selfPath, $latest, (New-Object System.Text.UTF8Encoding $false))
+                Write-Log "Updater self-updated from GitHub - new version will apply on next run"
+            }
+        }
+        catch {
+            Write-Log "WARNING: Could not self-update: $_"
+        }
+    }
+
+    # 1. Ensure mcp-remote is globally installed (npx does not work reliably on Windows)
     Write-Log "Ensuring mcp-remote is installed globally..."
     try {
         $npmOutput = & npm list -g mcp-remote 2>&1
@@ -26,7 +67,8 @@ function Main {
             Write-Log "Installing mcp-remote globally..."
             & npm install -g mcp-remote 2>&1 | Out-Null
             Write-Log "mcp-remote installed"
-        } else {
+        }
+        else {
             Write-Log "mcp-remote already installed"
         }
     }
@@ -34,11 +76,10 @@ function Main {
         Write-Log "WARNING: Could not install mcp-remote: $_"
     }
 
-    # Resolve the full path to mcp-remote.cmd so Claude Desktop can launch it directly.
-    # Must be .cmd specifically - Claude Desktop (Electron) cannot execute .ps1 files directly.
+    # 2. Resolve the full path to mcp-remote.cmd.
+    # Must be .cmd - Claude Desktop (Electron) cannot execute .ps1 files directly.
     $mcpRemotePath = $null
     try {
-        # Preferred: look for mcp-remote.cmd in the global npm prefix directory
         $npmPrefix = (& npm prefix -g 2>&1).Trim()
         $candidate = Join-Path $npmPrefix "mcp-remote.cmd"
         if (Test-Path $candidate) {
@@ -47,17 +88,18 @@ function Main {
     }
     catch {}
     if (-not $mcpRemotePath) {
-        # Fallback: walk Get-Command results and pick the .cmd file
         try {
             $resolved = (Get-Command "mcp-remote" -ErrorAction Stop).Source
             if ($resolved -like "*.cmd") {
                 $mcpRemotePath = $resolved
-            } else {
+            }
+            else {
                 $cmdSibling = [System.IO.Path]::ChangeExtension($resolved, ".cmd")
                 if (Test-Path $cmdSibling) {
                     $mcpRemotePath = $cmdSibling
-                } else {
-                    $mcpRemotePath = $resolved  # last resort
+                }
+                else {
+                    $mcpRemotePath = $resolved
                 }
             }
         }
@@ -68,7 +110,7 @@ function Main {
     }
     Write-Log "Resolved mcp-remote path: $mcpRemotePath"
 
-    # 1. Fetch registry from GitHub
+    # 3. Fetch registry from GitHub
     Write-Log "Fetching registry from $RegistryUrl"
     try {
         $registryRaw = Invoke-WebRequest -Uri $RegistryUrl -UseBasicParsing -TimeoutSec 15
@@ -85,7 +127,7 @@ function Main {
     }
     Write-Log "Registry fetched: $($registry.servers.Count) server(s) found"
 
-    # 2. Read or create claude_desktop_config.json
+    # 4. Read or create claude_desktop_config.json
     $configDir = Split-Path $ConfigPath -Parent
     if (-not (Test-Path $configDir)) {
         New-Item -ItemType Directory -Path $configDir -Force | Out-Null
@@ -103,8 +145,7 @@ function Main {
         catch {
             Write-Log "ERROR: Failed to parse existing config - backing up and starting fresh: $_"
             $backupName = "claude_desktop_config.backup." + (Get-Date -Format "yyyyMMdd-HHmmss") + ".json"
-            $backupPath = Join-Path $configDir $backupName
-            Copy-Item $ConfigPath $backupPath -Force
+            Copy-Item $ConfigPath (Join-Path $configDir $backupName) -Force
         }
     }
     else {
@@ -115,7 +156,6 @@ function Main {
         $config = New-Object PSObject
     }
 
-    # Ensure mcpServers key exists
     $hasServers = $false
     try { $hasServers = $null -ne $config.mcpServers } catch {}
     if (-not $hasServers) {
@@ -123,61 +163,54 @@ function Main {
     }
 
     $changesMade = $false
-    $isNonInteractive = [Environment]::GetCommandLineArgs() -contains "-NonInteractive"
-    $interactive = [Environment]::UserInteractive -and (-not $isNonInteractive)
 
-    # 3. Process each server in registry
+    # 5. Process each server in registry
     foreach ($server in $registry.servers) {
-        $key = $server.claude_config_key
-        $rawUrl = $server.railway_url.TrimEnd("/")
-        $mcpUrl = "$rawUrl/mcp"
+        $key          = $server.claude_config_key
+        $rawUrl       = $server.railway_url.TrimEnd("/")
+        $mcpUrl       = "$rawUrl/mcp"
+        $tokenEnvVar  = $server.token_env_var
         Write-Log "Processing server: $($server.name) (key: $key)"
 
-        # Resolve the bearer token
-        $tokenEnvVar = $server.token_env_var
+        # Resolve the bearer token (machine -> user -> process env var)
         $token = [System.Environment]::GetEnvironmentVariable($tokenEnvVar, "Machine")
-        if (-not $token) {
-            $token = [System.Environment]::GetEnvironmentVariable($tokenEnvVar, "User")
-        }
-        if (-not $token) {
-            $token = [System.Environment]::GetEnvironmentVariable($tokenEnvVar, "Process")
-        }
+        if (-not $token) { $token = [System.Environment]::GetEnvironmentVariable($tokenEnvVar, "User") }
+        if (-not $token) { $token = [System.Environment]::GetEnvironmentVariable($tokenEnvVar, "Process") }
 
         if (-not $token) {
-            if ($interactive) {
-                Write-Host ""
-                Write-Host "No token found for $($server.name) (env var: $tokenEnvVar)"
-                $token = Read-Host "Please enter the access token for $($server.name)"
-                if ([string]::IsNullOrWhiteSpace($token)) {
-                    Write-Log "SKIP: No token provided for $($server.name) - skipping"
+            # No token stored - show a friendly GUI prompt so the user can paste from Bitwarden
+            Write-Log "No token found for $($server.name) - showing prompt"
+            try {
+                $input = Show-TokenPrompt -ServerName $server.name -TokenEnvVar $tokenEnvVar
+                if ([string]::IsNullOrWhiteSpace($input)) {
+                    Write-Log "SKIP: No token entered for $($server.name)"
                     continue
                 }
-                # Save as machine-level env var for future runs
+                $token = $input.Trim()
+                # Save for future runs
                 try {
                     [System.Environment]::SetEnvironmentVariable($tokenEnvVar, $token, "Machine")
                     Write-Log "Saved token as machine-level env var: $tokenEnvVar"
                 }
                 catch {
-                    # If not admin, fall back to user-level
                     [System.Environment]::SetEnvironmentVariable($tokenEnvVar, $token, "User")
-                    Write-Log "Saved token as user-level env var (no admin rights): $tokenEnvVar"
+                    Write-Log "Saved token as user-level env var: $tokenEnvVar"
                 }
             }
-            else {
-                Write-Log "SKIP: No token found for $($server.name) and running non-interactively - skipping"
+            catch {
+                Write-Log "SKIP: Could not show prompt for $($server.name): $_"
                 continue
             }
         }
 
-        # Check if entry already exists and whether it needs updating
+        # Escape % as %% so cmd.exe does not expand e.g. %HIuIlD5 as an env var
+        $tokenForCmd = $token -replace '%', '%%'
+
+        # Check if entry already exists and is fully up to date
         $existingServers = $config.mcpServers
         $alreadyExists = $false
         try { $alreadyExists = $null -ne $existingServers.$key } catch {}
 
-        # Build the MCP server entry using the resolved mcp-remote path
-        # npx doesn't work reliably on Windows - the process exits immediately
-        # Escape % as %% so cmd.exe does not expand e.g. %HIuIlD5 as an env var
-        $tokenForCmd = $token -replace '%', '%%'
         $entry = New-Object PSObject
         $entry | Add-Member -NotePropertyName "command" -NotePropertyValue $mcpRemotePath
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
@@ -187,17 +220,17 @@ function Main {
 
         if ($alreadyExists) {
             $existing = $existingServers.$key
-            # Check if URL, command, and token are all correct
-            $existingUrl = ""
-            $existingCommand = ""
+            $existingUrl        = ""
+            $existingCommand    = ""
             $existingAuthHeader = ""
             try {
                 if ($existing.args) {
-                    $existingUrl = $existing.args[0]
+                    $existingUrl        = $existing.args[0]
                     if ($existing.args.Count -ge 3) { $existingAuthHeader = $existing.args[2] }
                 }
                 if ($existing.command) { $existingCommand = $existing.command }
-            } catch {}
+            }
+            catch {}
             $expectedAuthHeader = "Authorization: Bearer $tokenForCmd"
             if ($existingUrl -eq $mcpUrl -and $existingCommand -eq $mcpRemotePath -and $existingAuthHeader -eq $expectedAuthHeader) {
                 Write-Log "SKIP: $($server.name) already configured correctly"
@@ -209,7 +242,6 @@ function Main {
             Write-Log "ADD: $($server.name) is new - adding to config"
         }
 
-        # Add or update the entry
         if ($alreadyExists) {
             $existingServers.PSObject.Properties.Remove($key)
         }
@@ -217,14 +249,14 @@ function Main {
         $changesMade = $true
     }
 
-    # 4. Write updated config
+    # 6. Write updated config
     if ($changesMade) {
         $json = $config | ConvertTo-Json -Depth 10
         # Write UTF-8 without BOM - Claude Desktop's JSON parser rejects the BOM
         [System.IO.File]::WriteAllText($ConfigPath, $json, (New-Object System.Text.UTF8Encoding $false))
         Write-Log "Config written to $ConfigPath"
 
-        # 5. Restart Claude Desktop if it is running
+        # Restart Claude Desktop if it is running
         $claudeProcess = Get-Process -Name "Claude" -ErrorAction SilentlyContinue
         if ($claudeProcess) {
             Write-Log "Restarting Claude Desktop..."

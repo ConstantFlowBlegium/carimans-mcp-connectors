@@ -18,7 +18,7 @@ Write-Host "Updater script copied to $UpdaterDest"
 # 2. Build the scheduled task action
 $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -NonInteractive -File `"$UpdaterDest`""
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$UpdaterDest`""
 
 # 3. Build triggers: on logon + daily at 9:00 AM
 $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
