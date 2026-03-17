@@ -35,7 +35,7 @@ function Main {
     }
 
     # Resolve the full path to mcp-remote.cmd so Claude Desktop can launch it directly.
-    # Must be .cmd specifically — Claude Desktop (Electron) cannot execute .ps1 files directly.
+    # Must be .cmd specifically - Claude Desktop (Electron) cannot execute .ps1 files directly.
     $mcpRemotePath = $null
     try {
         # Preferred: look for mcp-remote.cmd in the global npm prefix directory
@@ -62,7 +62,7 @@ function Main {
             }
         }
         catch {
-            Write-Log "WARNING: Could not resolve mcp-remote path — falling back to 'mcp-remote'"
+            Write-Log "WARNING: Could not resolve mcp-remote path - falling back to 'mcp-remote'"
             $mcpRemotePath = "mcp-remote"
         }
     }
@@ -175,7 +175,7 @@ function Main {
         try { $alreadyExists = $null -ne $existingServers.$key } catch {}
 
         # Build the MCP server entry using the resolved mcp-remote path
-        # npx doesn't work reliably on Windows — the process exits immediately
+        # npx doesn't work reliably on Windows - the process exits immediately
         $entry = New-Object PSObject
         $entry | Add-Member -NotePropertyName "command" -NotePropertyValue $mcpRemotePath
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
@@ -213,7 +213,7 @@ function Main {
     # 4. Write updated config
     if ($changesMade) {
         $json = $config | ConvertTo-Json -Depth 10
-        # Write UTF-8 without BOM — Claude Desktop's JSON parser rejects the BOM
+        # Write UTF-8 without BOM - Claude Desktop's JSON parser rejects the BOM
         [System.IO.File]::WriteAllText($ConfigPath, $json, (New-Object System.Text.UTF8Encoding $false))
         Write-Log "Config written to $ConfigPath"
 
