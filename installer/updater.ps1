@@ -52,8 +52,19 @@ Press Cancel to skip (you can run the setup again later to activate it).
 function Main {
     Write-Log "--- Carimans MCP Updater started ---"
 
-    # 0. Self-update: fetch latest version from GitHub and replace local copy if changed.
-    # The current run continues unchanged; the new version is used on the next run.
+    # 0a. Refresh PATH from registry so Node.js/npm is visible even in stale sessions
+    # (e.g. when the installer runs right after Node.js was installed in the same boot)
+    try {
+        $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath    = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        $env:PATH    = (($machinePath + ";" + $userPath) -replace ';;+', ';').TrimEnd(';')
+    }
+    catch {
+        Write-Log "WARNING: Could not refresh PATH from registry: $_"
+    }
+
+    # 0b. Self-update: fetch latest version from GitHub and replace local copy if changed.
+    # The current run continues with this version; the new version is used on the next run.
     $selfPath = $MyInvocation.MyCommand.Path
     if ($selfPath -and (Test-Path $selfPath)) {
         try {
@@ -72,6 +83,12 @@ function Main {
     # 1. Ensure mcp-remote is globally installed (npx does not work reliably on Windows)
     Write-Log "Ensuring mcp-remote is installed globally..."
     try {
+        # On a fresh Node.js install the npm global dir may not exist yet - create it first
+        $npmGlobalDir = "$env:APPDATA\npm"
+        if (-not (Test-Path $npmGlobalDir)) {
+            New-Item -ItemType Directory -Path $npmGlobalDir -Force | Out-Null
+            Write-Log "Created npm global directory: $npmGlobalDir"
+        }
         $npmOutput = & npm list -g mcp-remote 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Log "Installing mcp-remote globally..."
