@@ -5,8 +5,18 @@ $ErrorActionPreference = "Stop"
 
 $RegistryUrl    = "https://raw.githubusercontent.com/ConstantFlowBlegium/carimans-mcp-connectors/main/registry/mcp-registry.json"
 $SelfUrl        = "https://raw.githubusercontent.com/ConstantFlowBlegium/carimans-mcp-connectors/main/installer/updater.ps1"
-$ConfigPath     = "$env:APPDATA\Claude\claude_desktop_config.json"
 $LogFile        = "$env:TEMP\carimans-mcp-connectors-updater.log"
+
+# Detect Claude Desktop config path.
+# Standard install: %APPDATA%\Claude\
+# Windows Store / MSIX install: %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\
+$ConfigPath = "$env:APPDATA\Claude\claude_desktop_config.json"
+if (-not (Test-Path "$env:APPDATA\Claude")) {
+    $pkg = Get-ChildItem "$env:LOCALAPPDATA\Packages" -Directory -Filter "Claude_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pkg) {
+        $ConfigPath = Join-Path $pkg.FullName "LocalCache\Roaming\Claude\claude_desktop_config.json"
+    }
+}
 
 Add-Type -AssemblyName Microsoft.VisualBasic
 

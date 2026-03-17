@@ -16,14 +16,19 @@ echo   Carimans AI Assistant - Setup
 echo ============================================
 echo.
 
-:: Check if Claude Desktop config directory exists
-if not exist "%APPDATA%\Claude" (
-    echo [ERROR] Claude Desktop is not installed.
+:: Check if Claude Desktop is installed (standard or Windows Store/MSIX path)
+set CLAUDE_FOUND=0
+if exist "%APPDATA%\Claude" set CLAUDE_FOUND=1
+if %CLAUDE_FOUND%==0 (
+    for /d %%d in ("%LOCALAPPDATA%\Packages\Claude_*") do set CLAUDE_FOUND=1
+)
+if %CLAUDE_FOUND%==0 (
+    echo [ERROR] Claude Desktop does not appear to be installed.
     echo.
     echo Please install Claude Desktop first from:
     echo   https://claude.ai/download
     echo.
-    echo After installing, run this setup again.
+    echo After installing and opening it at least once, run this setup again.
     echo.
     pause
     exit /b 1
