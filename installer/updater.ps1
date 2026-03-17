@@ -34,17 +34,39 @@ function Main {
         Write-Log "WARNING: Could not install mcp-remote: $_"
     }
 
-    # Resolve the full path to mcp-remote.cmd so Claude Desktop can launch it directly
-    # Using just "mcp-remote" as the command doesn't work — Electron can't resolve .cmd files from PATH
+    # Resolve the full path to mcp-remote.cmd so Claude Desktop can launch it directly.
+    # Must be .cmd specifically — Claude Desktop (Electron) cannot execute .ps1 files directly.
     $mcpRemotePath = $null
     try {
-        $mcpRemotePath = (Get-Command "mcp-remote" -ErrorAction Stop).Source
-        Write-Log "Resolved mcp-remote path: $mcpRemotePath"
+        # Preferred: look for mcp-remote.cmd in the global npm prefix directory
+        $npmPrefix = (& npm prefix -g 2>&1).Trim()
+        $candidate = Join-Path $npmPrefix "mcp-remote.cmd"
+        if (Test-Path $candidate) {
+            $mcpRemotePath = $candidate
+        }
     }
-    catch {
-        Write-Log "WARNING: Could not resolve mcp-remote path — falling back to 'mcp-remote'"
-        $mcpRemotePath = "mcp-remote"
+    catch {}
+    if (-not $mcpRemotePath) {
+        # Fallback: walk Get-Command results and pick the .cmd file
+        try {
+            $resolved = (Get-Command "mcp-remote" -ErrorAction Stop).Source
+            if ($resolved -like "*.cmd") {
+                $mcpRemotePath = $resolved
+            } else {
+                $cmdSibling = [System.IO.Path]::ChangeExtension($resolved, ".cmd")
+                if (Test-Path $cmdSibling) {
+                    $mcpRemotePath = $cmdSibling
+                } else {
+                    $mcpRemotePath = $resolved  # last resort
+                }
+            }
+        }
+        catch {
+            Write-Log "WARNING: Could not resolve mcp-remote path — falling back to 'mcp-remote'"
+            $mcpRemotePath = "mcp-remote"
+        }
     }
+    Write-Log "Resolved mcp-remote path: $mcpRemotePath"
 
     # 1. Fetch registry from GitHub
     Write-Log "Fetching registry from $RegistryUrl"
