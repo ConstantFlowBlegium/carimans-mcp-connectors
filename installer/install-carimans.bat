@@ -2,14 +2,6 @@
 chcp 65001 >nul 2>&1
 title Carimans AI Assistant - Setup
 
-:: Request admin elevation if not already running as admin
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Requesting administrator permissions...
-    powershell.exe -NoProfile -Command "Start-Process -Verb RunAs -FilePath '%~f0'"
-    exit /b
-)
-
 echo.
 echo ============================================
 echo   Carimans AI Assistant - Setup
