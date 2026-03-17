@@ -187,14 +187,19 @@ function Main {
 
         if ($alreadyExists) {
             $existing = $existingServers.$key
-            # Check if both URL and command format are correct
+            # Check if URL, command, and token are all correct
             $existingUrl = ""
             $existingCommand = ""
+            $existingAuthHeader = ""
             try {
-                if ($existing.args) { $existingUrl = $existing.args[0] }
+                if ($existing.args) {
+                    $existingUrl = $existing.args[0]
+                    if ($existing.args.Count -ge 3) { $existingAuthHeader = $existing.args[2] }
+                }
                 if ($existing.command) { $existingCommand = $existing.command }
             } catch {}
-            if ($existingUrl -eq $mcpUrl -and $existingCommand -eq $mcpRemotePath) {
+            $expectedAuthHeader = "Authorization: Bearer $tokenForCmd"
+            if ($existingUrl -eq $mcpUrl -and $existingCommand -eq $mcpRemotePath -and $existingAuthHeader -eq $expectedAuthHeader) {
                 Write-Log "SKIP: $($server.name) already configured correctly"
                 continue
             }
