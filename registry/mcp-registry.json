@@ -21,7 +21,7 @@
       "id": "gdrive",
       "name": "Google Drive",
       "description": "Carimans Google Drive — factuurcarimans@gmail.com",
-      "railway_url": "PLACEHOLDER — fill in after Railway deploy",
+      "railway_url": "https://google-drive-mcp-production-b4e9.up.railway.app/",
       "token_env_var": "GDRIVE_MCP_TOKEN",
       "claude_config_key": "gdrive-mcp"
     }
