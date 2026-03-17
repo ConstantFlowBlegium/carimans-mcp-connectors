@@ -34,6 +34,18 @@ function Main {
         Write-Log "WARNING: Could not install mcp-remote: $_"
     }
 
+    # Resolve the full path to mcp-remote.cmd so Claude Desktop can launch it directly
+    # Using just "mcp-remote" as the command doesn't work — Electron can't resolve .cmd files from PATH
+    $mcpRemotePath = $null
+    try {
+        $mcpRemotePath = (Get-Command "mcp-remote" -ErrorAction Stop).Source
+        Write-Log "Resolved mcp-remote path: $mcpRemotePath"
+    }
+    catch {
+        Write-Log "WARNING: Could not resolve mcp-remote path — falling back to 'mcp-remote'"
+        $mcpRemotePath = "mcp-remote"
+    }
+
     # 1. Fetch registry from GitHub
     Write-Log "Fetching registry from $RegistryUrl"
     try {
@@ -140,33 +152,33 @@ function Main {
         $alreadyExists = $false
         try { $alreadyExists = $null -ne $existingServers.$key } catch {}
 
-        if ($alreadyExists) {
-            $existing = $existingServers.$key
-            # Check if URL matches (first arg is the URL)
-            $existingUrl = ""
-            try {
-                if ($existing.args) {
-                    $existingUrl = $existing.args[0]
-                }
-            } catch {}
-            if ($existingUrl -eq $mcpUrl) {
-                Write-Log "SKIP: $($server.name) already configured with correct URL"
-                continue
-            }
-            Write-Log "UPDATE: $($server.name) URL changed from $existingUrl to $mcpUrl"
-        }
-        else {
-            Write-Log "ADD: $($server.name) is new - adding to config"
-        }
-
-        # Build the MCP server entry using mcp-remote (globally installed)
+        # Build the MCP server entry using the resolved mcp-remote path
         # npx doesn't work reliably on Windows — the process exits immediately
         $entry = New-Object PSObject
-        $entry | Add-Member -NotePropertyName "command" -NotePropertyValue "mcp-remote"
+        $entry | Add-Member -NotePropertyName "command" -NotePropertyValue $mcpRemotePath
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
             $mcpUrl,
             "--header", "Authorization: Bearer $token"
         )
+
+        if ($alreadyExists) {
+            $existing = $existingServers.$key
+            # Check if both URL and command format are correct
+            $existingUrl = ""
+            $existingCommand = ""
+            try {
+                if ($existing.args) { $existingUrl = $existing.args[0] }
+                if ($existing.command) { $existingCommand = $existing.command }
+            } catch {}
+            if ($existingUrl -eq $mcpUrl -and $existingCommand -eq $mcpRemotePath) {
+                Write-Log "SKIP: $($server.name) already configured correctly"
+                continue
+            }
+            Write-Log "UPDATE: $($server.name) (command: $existingCommand -> $mcpRemotePath, url: $existingUrl -> $mcpUrl)"
+        }
+        else {
+            Write-Log "ADD: $($server.name) is new - adding to config"
+        }
 
         # Add or update the entry
         if ($alreadyExists) {
