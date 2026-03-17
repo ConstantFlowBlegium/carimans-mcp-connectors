@@ -137,6 +137,26 @@ function Main {
     }
     Write-Log "Resolved mcp-remote path: $mcpRemotePath"
 
+    # If the path contains spaces, convert to 8.3 short path.
+    # Claude Desktop spawns .cmd files as: cmd.exe /C <path> <args>
+    # cmd.exe splits on spaces, so a path like "C:\Users\Vlodimyr Vahchuk\...\mcp-remote.cmd"
+    # causes 'C:\Users\Vlodimyr' is not recognized errors.
+    if ($mcpRemotePath -and ($mcpRemotePath -match ' ') -and (Test-Path $mcpRemotePath)) {
+        try {
+            $shortPath = (& cmd.exe /c "for %I in (`"$mcpRemotePath`") do @echo %~sI").Trim()
+            if ($shortPath -and ($shortPath -notmatch ' ') -and (Test-Path $shortPath)) {
+                Write-Log "Path has spaces - using 8.3 short path: $shortPath"
+                $mcpRemotePath = $shortPath
+            }
+            else {
+                Write-Log "WARNING: Could not shorten path (8.3 names may be disabled) - spaces may cause issues"
+            }
+        }
+        catch {
+            Write-Log "WARNING: Could not get short path: $_"
+        }
+    }
+
     # 3. Fetch registry from GitHub
     Write-Log "Fetching registry from $RegistryUrl"
     try {
