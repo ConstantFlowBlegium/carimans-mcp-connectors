@@ -16,6 +16,14 @@
       "railway_url": "https://outlook-mcp-production-0326.up.railway.app",
       "token_env_var": "OUTLOOK_MCP_TOKEN",
       "claude_config_key": "outlook-mcp"
+    },
+    {
+      "id": "gdrive",
+      "name": "Google Drive",
+      "description": "Carimans Google Drive — factuurcarimans@gmail.com",
+      "railway_url": "PLACEHOLDER — fill in after Railway deploy",
+      "token_env_var": "GDRIVE_MCP_TOKEN",
+      "claude_config_key": "gdrive-mcp"
     }
   ]
 }
