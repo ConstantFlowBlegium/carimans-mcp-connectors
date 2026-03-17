@@ -176,11 +176,13 @@ function Main {
 
         # Build the MCP server entry using the resolved mcp-remote path
         # npx doesn't work reliably on Windows - the process exits immediately
+        # Escape % as %% so cmd.exe does not expand e.g. %HIuIlD5 as an env var
+        $tokenForCmd = $token -replace '%', '%%'
         $entry = New-Object PSObject
         $entry | Add-Member -NotePropertyName "command" -NotePropertyValue $mcpRemotePath
         $entry | Add-Member -NotePropertyName "args" -NotePropertyValue @(
             $mcpUrl,
-            "--header", "Authorization: Bearer $token"
+            "--header", "Authorization: Bearer $tokenForCmd"
         )
 
         if ($alreadyExists) {
