@@ -24,5 +24,11 @@ class RobawsClient:
         except httpx.RequestError as e:
             return {"error": f"Could not reach Robaws API: {str(e)}"}
 
+    async def get_binary(self, url: str) -> httpx.Response:
+        """Fetch raw binary content from a full URL using the same auth."""
+        response = await self.client.get(url, headers={"Accept": "*/*"})
+        response.raise_for_status()
+        return response
+
     async def close(self):
         await self.client.aclose()
