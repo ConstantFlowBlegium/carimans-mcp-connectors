@@ -32,7 +32,7 @@
       "id": "gmail",
       "name": "Gmail",
       "description": "Carimans Gmail — factuurcarimans@gmail.com",
-      "railway_url": "PLACEHOLDER — fill in after Railway deploy",
+      "railway_url": "https://factuurcarimans-gmail-mcp-production.up.railway.app/",
       "token_env_var": "GMAIL_MCP_TOKEN",
       "token_value": null,
       "claude_config_key": "gmail-mcp"
