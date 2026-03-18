@@ -27,6 +27,15 @@
       "token_env_var": "GDRIVE_MCP_TOKEN",
       "token_value": null,
       "claude_config_key": "gdrive-mcp"
+    },
+    {
+      "id": "gmail",
+      "name": "Gmail",
+      "description": "Carimans Gmail — factuurcarimans@gmail.com",
+      "railway_url": "PLACEHOLDER — fill in after Railway deploy",
+      "token_env_var": "GMAIL_MCP_TOKEN",
+      "token_value": null,
+      "claude_config_key": "gmail-mcp"
     }
   ]
 }
