@@ -1,4 +1,6 @@
 import os
+import uuid
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth import StaticTokenVerifier
@@ -6,6 +8,9 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from outlook_client import OutlookClient
+
+# In-memory draft store: {draft_id: {"payload": {...}, "expires_at": datetime}}
+_drafts: dict = {}
 
 load_dotenv()
 
@@ -56,8 +61,48 @@ async def search_emails(query: str, mailbox: str = None, limit: int = 10) -> dic
 
 @mcp.tool()
 async def send_email(from_mailbox: str, to: str, subject: str, body: str, cc: str = None) -> dict:
-    """Send an email from a specific mailbox. The from_mailbox must be in the allowed MAILBOXES list."""
-    return await client.send_message(from_mailbox=from_mailbox, to=to, subject=subject, body=body, cc=cc)
+    """Prepares an email draft and returns a preview. Does NOT send the email. You MUST show the preview to the user and receive clear, explicit confirmation before calling confirm_send_email. Ambiguous responses like 'okay', 'sure', 'continue', or silence do NOT count as confirmation."""
+    draft_id = uuid.uuid4().hex[:8]
+    _drafts[draft_id] = {
+        "payload": {
+            "from_mailbox": from_mailbox,
+            "to": to,
+            "subject": subject,
+            "body": body,
+            "cc": cc,
+        },
+        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+    }
+    return {
+        "draft_id": draft_id,
+        "status": "draft_ready",
+        "preview": {
+            "from": from_mailbox,
+            "to": to,
+            "subject": subject,
+            "body_preview": body[:300] + ("..." if len(body) > 300 else ""),
+            "cc": cc,
+        },
+        "instruction": "Show this preview to the user and ask for explicit confirmation before calling confirm_send_email. Do not call confirm_send_email unless the user clearly and unambiguously says to send.",
+    }
+
+
+@mcp.tool()
+async def confirm_send_email(draft_id: str, mailbox: str) -> dict:
+    """Actually sends a previously prepared email draft. Only call this after showing the user the draft preview and receiving explicit confirmation to send. Requires the draft_id from send_email."""
+    draft = _drafts.pop(draft_id, None)
+    if draft is None or datetime.utcnow() > draft["expires_at"]:
+        if draft_id in _drafts:
+            _drafts.pop(draft_id, None)
+        return {"error": "Draft expired or not found. Please call send_email again to create a new draft."}
+    p = draft["payload"]
+    return await client.send_message(
+        from_mailbox=p["from_mailbox"],
+        to=p["to"],
+        subject=p["subject"],
+        body=p["body"],
+        cc=p["cc"],
+    )
 
 @mcp.tool()
 async def list_folders(mailbox: str = None) -> dict:

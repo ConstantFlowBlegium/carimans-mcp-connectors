@@ -1,4 +1,6 @@
 import os
+import uuid
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth import StaticTokenVerifier
@@ -6,6 +8,9 @@ from contextlib import asynccontextmanager
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from gmail_client import GmailClient
+
+# In-memory draft store: {draft_id: {"payload": {...}, "expires_at": datetime}}
+_drafts: dict = {}
 
 load_dotenv()
 
@@ -123,7 +128,7 @@ async def send_email(
     bcc: str = None,
     reply_to_thread_id: str = None,
 ) -> dict:
-    """Send an email from the factuurcarimans@gmail.com account.
+    """Prepares an email draft and returns a preview. Does NOT send the email. You MUST show the preview to the user and receive clear, explicit confirmation before calling confirm_send_email. Ambiguous responses like 'okay', 'sure', 'continue', or silence do NOT count as confirmation.
 
     to: recipient address (required)
     subject: email subject (required)
@@ -132,15 +137,54 @@ async def send_email(
     bcc: BCC address(es), comma-separated (optional)
     reply_to_thread_id: if provided, adds this email to an existing thread (optional)
 
-    Returns: sent status, message ID, and thread ID.
+    Returns: draft preview with draft_id. Does NOT send.
     """
+    draft_id = uuid.uuid4().hex[:8]
+    _drafts[draft_id] = {
+        "payload": {
+            "to": to,
+            "subject": subject,
+            "body": body,
+            "cc": cc,
+            "bcc": bcc,
+            "reply_to_thread_id": reply_to_thread_id,
+        },
+        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+    }
+    return {
+        "draft_id": draft_id,
+        "status": "draft_ready",
+        "preview": {
+            "to": to,
+            "subject": subject,
+            "body_preview": body[:300] + ("..." if len(body) > 300 else ""),
+            "cc": cc,
+            "bcc": bcc,
+        },
+        "instruction": "Show this preview to the user and ask for explicit confirmation before calling confirm_send_email. Do not call confirm_send_email unless the user clearly and unambiguously says to send.",
+    }
+
+
+@mcp.tool()
+async def confirm_send_email(draft_id: str, from_mailbox: str) -> dict:
+    """Actually sends a previously prepared email draft. Only call this after showing the user the draft preview and receiving explicit confirmation to send. Requires the draft_id from send_email.
+
+    draft_id: the draft ID returned by send_email (required)
+    from_mailbox: the Gmail address to send from — must be in the configured MAILBOXES list (required)
+    """
+    draft = _drafts.pop(draft_id, None)
+    if draft is None or datetime.utcnow() > draft["expires_at"]:
+        if draft_id in _drafts:
+            _drafts.pop(draft_id, None)
+        return {"error": "Draft expired or not found. Please call send_email again to create a new draft."}
+    p = draft["payload"]
     return await client.send_email(
-        to=to,
-        subject=subject,
-        body=body,
-        cc=cc,
-        bcc=bcc,
-        reply_to_thread_id=reply_to_thread_id,
+        to=p["to"],
+        subject=p["subject"],
+        body=p["body"],
+        cc=p["cc"],
+        bcc=p["bcc"],
+        reply_to_thread_id=p["reply_to_thread_id"],
     )
 
 
