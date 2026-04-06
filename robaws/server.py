@@ -317,6 +317,46 @@ async def get_document_content(document_id: int) -> dict:
         return {"error": f"Failed to process document {document_id}: {str(e)}"}
 
 @mcp.tool()
+async def get_offer_line_items(offer_id: int, include: list[str] = None) -> dict:
+    """Fetch line items for a specific offer. Each line item contains quantity, price, discount, description, article info, and VAT details. Use the 'include' parameter to embed related objects (e.g. article, material, vatTariff)."""
+    params = {}
+    if include:
+        params["include"] = include
+    return await client.get(f"offers/{offer_id}/line-items", params)
+
+@mcp.tool()
+async def get_purchase_invoice_line_items(purchase_invoice_id: int, include: list[str] = None) -> dict:
+    """Fetch line items for a specific purchase invoice. Each line item contains quantity, price, discount, description, project/article references, and date range. Use the 'include' parameter to embed related objects (e.g. material, article, project, vatTariff)."""
+    params = {}
+    if include:
+        params["include"] = include
+    return await client.get(f"purchase-invoices/{purchase_invoice_id}/line-items", params)
+
+@mcp.tool()
+async def get_purchase_supply_order_line_items(purchase_supply_order_id: int, include: list[str] = None) -> dict:
+    """Fetch line items for a specific purchase supply order. Each line item contains quantity, price, discount, received amount, and supplier/article references. Use the 'include' parameter to embed related objects (e.g. post, articleSupplier, article, material, activity, order, project, vatTariff)."""
+    params = {}
+    if include:
+        params["include"] = include
+    return await client.get(f"purchase-supply-orders/{purchase_supply_order_id}/line-items", params)
+
+@mcp.tool()
+async def get_work_order_line_items(work_order_id: int, include: list[str] = None) -> dict:
+    """Fetch line items for a specific work order. Each line item contains quantity, price, cost price, discount, description, and article/post references. Use the 'include' parameter to embed related objects (e.g. article, post)."""
+    params = {}
+    if include:
+        params["include"] = include
+    return await client.get(f"work-orders/{work_order_id}/line-items", params)
+
+@mcp.tool()
+async def get_work_order_material_entries(work_order_id: int, include: list[str] = None) -> dict:
+    """Fetch material entries for a specific work order. Each entry contains material/article references, amounts (billable and cost), sale price, and remarks. Use the 'include' parameter to embed related objects (e.g. material, article)."""
+    params = {}
+    if include:
+        params["include"] = include
+    return await client.get(f"work-orders/{work_order_id}/material-entries", params)
+
+@mcp.tool()
 async def search_robaws(endpoint: str, params: dict = None) -> dict:
     """Generic tool to query any Robaws endpoint with custom parameters."""
     return await client.get(endpoint, params or {})
