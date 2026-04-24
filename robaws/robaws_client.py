@@ -11,7 +11,7 @@ class RobawsClient:
         self.api_secret = os.getenv("ROBAWS_API_SECRET")
         if not self.api_key or not self.api_secret:
             raise ValueError("ROBAWS_API_KEY and ROBAWS_API_SECRET environment variables are required")
-        self.client = httpx.AsyncClient(auth=(self.api_key, self.api_secret), headers={"Accept": "application/json"})
+        self.client = httpx.AsyncClient(auth=(self.api_key, self.api_secret), headers={"Accept": "application/json"}, timeout=30.0)
 
     async def get(self, endpoint: str, params: dict = None) -> dict:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
