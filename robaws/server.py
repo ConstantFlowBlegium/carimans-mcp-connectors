@@ -36,8 +36,17 @@ mcp = FastMCP("Robaws Assistant", lifespan=lifespan, auth=auth)
 
 @mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
 async def health_check(request: Request) -> JSONResponse:
-    """Health-check endpoint for Railway (and other health probes)."""
     return JSONResponse({"status": "ok"})
+
+@mcp.custom_route("/test-robaws", methods=["GET"], include_in_schema=False)
+async def test_robaws(request: Request) -> JSONResponse:
+    try:
+        result = await client.get("employees", {"size": 1})
+        if "error" in result:
+            return JSONResponse({"status": "error", "detail": result["error"]}, status_code=502)
+        return JSONResponse({"status": "ok", "sample": result})
+    except Exception as e:
+        return JSONResponse({"status": "exception", "detail": str(e)}, status_code=500)
 
 @mcp.tool()
 async def get_work_orders(size: int = 25, page: int = 0, status: str = None, date_from: str = None, date_to: str = None, client_id: str = None) -> dict:
